@@ -1,0 +1,94 @@
+//******** START: APEX CONTROLLER ********//
+
+public class TiffImageController{
+
+    public TiffImageController(){        
+    }
+    
+    public String BodyContent;
+    
+    public String getBodyContent(){
+       ContentVersion doc = [select Id,VersionData, FileExtension, PathOnClient 
+                             	from ContentVersion where ContentDocumentId = '0692v00000H50zvAAB' Limit 1];
+       Blob tiffblb = doc.VersionData;      
+       return EncodingUtil.base64Encode(tiffblb);
+   } 
+}
+
+//******** END: APEX CONTROLLER ********//
+
+
+//******** START: PROXY VISUALFORCE ********//
+
+<apex:page showHeader="false" sidebar="false" standardStylesheets="false" controller="TiffImageController" contentType="image/tiff" >
+{!BodyContent}
+</apex:page>
+
+//******** END: PROXY VISUALFORCE ********//
+
+
+//******** START: GET THE TIFF.js FILE ********//
+
+https://github.com/GPHemsley/tiff-js/blob/master/tiff.js
+
+//******** END: GET THE TIFF.js FILE ********//
+
+//******** START: TIFF RENDERER VF PAGE ********//
+
+<apex:page showheader="false" sidebar="false">
+<apex:includeScript value="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js" />
+<apex:includeScript value="{!$Resource.tiff_new}"/>
+<head>
+    <title>TIFF RENDER</title>
+    <script type="text/javascript">
+  
+        var renderTIFFBlob = function() {
+            var xhr = new XMLHttpRequest();
+            var reader = new FileReader();
+            var prox = 'https://sanjit-bose-poc-dev-ed--c.ap15.visual.force.com/apex/TiffBlob';
+            xhr.open("GET", prox);
+            
+            xhr.onload = function(e) {
+                var canvas = document.getElementById("tiff-image");
+                var canvasParent = canvas.parentNode;
+                // Load the TIFF parser.
+                var tiffParser = new TIFFParser();
+                var base64str = xhr.response;
+                
+                // decode base64 string, remove space 
+                var binary = atob(base64str.replace(/\s/g, ''));
+                var len = binary.length;
+                var buffer = new ArrayBuffer(len);
+                var view = new Uint8Array(buffer);
+                for (var i = 0; i < len; i++) {
+                    view[i] = binary.charCodeAt(i);
+                }
+                // create the blob object with content-type "image/tiff"               
+                var blob = new Blob( [view], { type: "image/tiff" });
+                
+                (async () => {
+                    const buf = await blob.arrayBuffer();
+                    // Parse the TIFF image.
+                    var tiffCanvas = tiffParser.parseTIFF(buf, canvas);                    
+                    tiffCanvas.style.borderStyle = "solid";
+                    // Put the parsed image in the page.
+                    canvasParent.replaceChild(tiffCanvas, canvas);  
+                })();                              
+            };
+            xhr.send();
+        }
+        
+    </script>
+</head>
+<body>
+    <form name="tiff-parser" method="post" enctype="multipart/form-data" style="margin: 10% auto auto; text-align: center;">   
+        <input type="button" name="parse" value="Render TIFF" onclick="renderTIFFBlob();" />
+    </form>
+    <canvas id="tiff-image" style="display: block; max-width: 95%; margin: 2em auto; border: 1px dashed magenta; padding: 0px; background-color: #FFEEFF;">
+    </canvas>
+</body>
+</apex:page>
+
+//******** END: TIFF RENDERER VF PAGE ********//
+
+
